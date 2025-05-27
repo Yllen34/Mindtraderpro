@@ -106,4 +106,5 @@ def calculate():
         return jsonify({"success": False, "error": str(e)}), 500
 
 if __name__ == "__main__":
-    app.run(debug=False)
+    port = int(os.environ.get("PORT", 10000))  # 10000 est une valeur par défaut
+    app.run(host="0.0.0.0", port=port)
