@@ -17,34 +17,31 @@ class CurrencyPair(db.Model):
     symbol = db.Column(db.String(10), unique=True, nullable=False)
     pip_value = db.Column(db.Float, nullable=False)
 
-# Accueil
+# Page d'accueil
 @app.route("/")
 @app.route("/home")
 def home():
-    return render_template("home.html")
-
-@app.route("/journal")
-def journal():
-    return "<h1>Page Journal - À créer plus tard</h1>"
+    return render_template("index.html")
 
 # Page calculateur
 @app.route("/calculator")
 def calculator():
     return render_template("calculator.html")
 
-# Nouvelle route propre pour récupérer les prix via MetaAPI
+# Route prix en temps réel
 @app.route("/price", methods=["POST"])
 def get_price():
-    try:
-        data = request.get_json()
-        symbol = data.get("symbol")
-        if not symbol:
-            return jsonify({"success": False, "error": "Symbole requis."}), 400
+    data = request.json
+    symbol = data.get("symbol")
 
+    if not symbol:
+        return jsonify({"success": False, "error": "Symbole requis."}), 400
+
+    try:
         metaapi = MetaAPIService()
         result = metaapi.get_price(symbol)
 
-        if result.get("success"):
+        if result["success"]:
             return jsonify({
                 "success": True,
                 "price": round(result["price"], 5),
@@ -52,20 +49,21 @@ def get_price():
                 "ask": result["ask"]
             })
         else:
-            return jsonify({"success": False, "error": result["error"]}), 500
-
+            return jsonify({"success": False, "error": result["error"]})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
-# Route de calcul de lot
+# Route de calcul de position
 @app.route("/calculate", methods=["POST"])
 def calculate():
     try:
         data = request.get_json()
-        required_fields = ["symbol", "direction", "capital", "risk_percent", "entry_price", "stop_loss"]
-        for field in required_fields:
-            if field not in data or not str(data[field]).strip():
-                return jsonify({"success": False, "error": f"Champ requis manquant : {field}"}), 400
+
+        # Validation
+        required = ["symbol", "direction", "capital", "risk_percent", "entry_price", "stop_loss"]
+        for field in required:
+            if not str(data.get(field)).strip():
+                return jsonify({"success": False, "error": f"Champ requis : {field}"}), 400
 
         symbol = data["symbol"]
         direction = data["direction"]
@@ -75,11 +73,13 @@ def calculate():
         stop_loss = float(data["stop_loss"])
         take_profit = float(data.get("take_profit")) if data.get("take_profit") else None
 
+        # Logique buy/sell
         if direction == "buy" and stop_loss >= entry_price:
-            return jsonify({"success": False, "error": "Le SL doit être < au prix d'entrée (achat)."})
+            return jsonify({"success": False, "error": "Stop Loss doit être < au prix d'entrée (achat)."})
         if direction == "sell" and stop_loss <= entry_price:
-            return jsonify({"success": False, "error": "Le SL doit être > au prix d'entrée (vente)."})
+            return jsonify({"success": False, "error": "Stop Loss doit être > au prix d'entrée (vente)."})
 
+        # Calcul
         pip_size = 0.01 if "JPY" in symbol else 0.0001
         if symbol == "XAUUSD":
             pip_size = 0.1
@@ -87,7 +87,12 @@ def calculate():
         pip_difference = abs(entry_price - stop_loss) / pip_size
         risk_amount = capital * (risk_percent / 100)
 
-        pip_value = 0.1 if symbol == "XAUUSD" else (1 if symbol.endswith("JPY") else 10)
+        pip_value = 10
+        if symbol == "XAUUSD":
+            pip_value = 0.1
+        elif "JPY" in symbol:
+            pip_value = 1
+
         lot_size = round(risk_amount / (pip_difference * pip_value), 2)
 
         return jsonify({
@@ -97,9 +102,8 @@ def calculate():
             "pip_difference": round(pip_difference),
             "pip_value": pip_value
         })
-
     except Exception as e:
-        return jsonify({"success": False, "error": f"Erreur serveur : {str(e)}"}), 500
+        return jsonify({"success": False, "error": str(e)}), 500
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+    app.run(debug=False)
