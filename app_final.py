@@ -83,5 +83,20 @@ def calculate():
         return jsonify({"success": False, "error": f"Erreur serveur : {str(e)}"}), 500
 
 # Lancer l'app uniquement si exécutée directement (pas en import)
+from flask import request, jsonify
+from services.metaapi_service import get_price_from_metaapi
+
+@app.route("/price", methods=["POST"])
+def get_price():
+    data = request.json
+    symbol = data.get("symbol")
+    if not symbol:
+        return jsonify({"success": False, "error": "Symbole requis."}), 400
+
+    try:
+        price = get_price_from_metaapi(symbol)
+        return jsonify({"success": True, "price": price})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
 if __name__ == "__main__":
     app.run(debug=False)
