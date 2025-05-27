@@ -23,6 +23,10 @@ class CurrencyPair(db.Model):
 def home():
     return render_template("home.html")
 
+@app.route("/journal")
+def journal():
+    return "<h1>Page Journal - À créer plus tard</h1>"
+
 # Page calculateur
 @app.route("/calculator")
 def calculator():
