@@ -27,6 +27,27 @@ def home():
 def calculator():
     return render_template("calculator.html")
 
+# Route pour récupérer le prix en temps réel d'une paire via MetaAPI
+@app.route('/price', methods=['POST'])
+def get_live_price():
+    try:
+        data = request.get_json()
+        symbol = data.get('symbol')
+
+        if not symbol:
+            return jsonify({'error': 'Symbole manquant'}), 400
+
+        from services.metaapi_service import get_price
+        price = get_price(symbol)
+
+        if price is None:
+            return jsonify({'error': f'Prix introuvable pour {symbol}'}), 404
+
+        return jsonify({'price': price}), 200
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 # Route pour calculer la position
 @app.route("/calculate", methods=["POST"])
 def calculate():
