@@ -18,10 +18,6 @@ class CurrencyPair(db.Model):
     pip_value = db.Column(db.Float, nullable=False)
 
 # Page d'accueil
-@app.route("/")
-@app.route("/home")
-def home():
-    return render_template("index.html")
 
 @app.route('/')
 @app.route('/home')
