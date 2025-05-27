@@ -1,6 +1,7 @@
 from flask import Flask, render_template, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 import os
+from services.metaapi_service import MetaAPIService
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "changeme")
@@ -10,51 +11,53 @@ app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///trading.db"
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 db = SQLAlchemy(app)
 
-# Modèle de base pour stocker les paires personnalisées (si besoin)
+# Modèle de base
 class CurrencyPair(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     symbol = db.Column(db.String(10), unique=True, nullable=False)
     pip_value = db.Column(db.Float, nullable=False)
 
-# Page d'accueil
+# Accueil
 @app.route("/")
 @app.route("/home")
 def home():
     return render_template("home.html")
 
-# Page du calculateur
+# Page calculateur
 @app.route("/calculator")
 def calculator():
     return render_template("calculator.html")
 
-# Route pour récupérer le prix en temps réel d'une paire via MetaAPI
-@app.route('/price', methods=['POST'])
-def get_live_price():
+# Nouvelle route propre pour récupérer les prix via MetaAPI
+@app.route("/price", methods=["POST"])
+def get_price():
     try:
         data = request.get_json()
-        symbol = data.get('symbol')
-
+        symbol = data.get("symbol")
         if not symbol:
-            return jsonify({'error': 'Symbole manquant'}), 400
+            return jsonify({"success": False, "error": "Symbole requis."}), 400
 
-        from services.metaapi_service import get_price
-        price = get_price(symbol)
+        metaapi = MetaAPIService()
+        result = metaapi.get_price(symbol)
 
-        if price is None:
-            return jsonify({'error': f'Prix introuvable pour {symbol}'}), 404
-
-        return jsonify({'price': price}), 200
+        if result.get("success"):
+            return jsonify({
+                "success": True,
+                "price": round(result["price"], 5),
+                "bid": result["bid"],
+                "ask": result["ask"]
+            })
+        else:
+            return jsonify({"success": False, "error": result["error"]}), 500
 
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({"success": False, "error": str(e)}), 500
 
-# Route pour calculer la position
+# Route de calcul de lot
 @app.route("/calculate", methods=["POST"])
 def calculate():
     try:
         data = request.get_json()
-
-        # Sécurité : validation des champs
         required_fields = ["symbol", "direction", "capital", "risk_percent", "entry_price", "stop_loss"]
         for field in required_fields:
             if field not in data or not str(data[field]).strip():
@@ -68,13 +71,11 @@ def calculate():
         stop_loss = float(data["stop_loss"])
         take_profit = float(data.get("take_profit")) if data.get("take_profit") else None
 
-        # Valider la logique Buy/Sell
         if direction == "buy" and stop_loss >= entry_price:
-            return jsonify({"success": False, "error": "Le Stop Loss doit être inférieur au prix d'entrée pour un achat."})
+            return jsonify({"success": False, "error": "Le SL doit être < au prix d'entrée (achat)."})
         if direction == "sell" and stop_loss <= entry_price:
-            return jsonify({"success": False, "error": "Le Stop Loss doit être supérieur au prix d'entrée pour une vente."})
+            return jsonify({"success": False, "error": "Le SL doit être > au prix d'entrée (vente)."})
 
-        # Détection du pip size
         pip_size = 0.01 if "JPY" in symbol else 0.0001
         if symbol == "XAUUSD":
             pip_size = 0.1
@@ -82,14 +83,7 @@ def calculate():
         pip_difference = abs(entry_price - stop_loss) / pip_size
         risk_amount = capital * (risk_percent / 100)
 
-        pip_value = 1.0  # valeur standard approximative
-        if symbol == "XAUUSD":
-            pip_value = 0.1
-        elif symbol.endswith("JPY"):
-            pip_value = 1
-        else:
-            pip_value = 10
-
+        pip_value = 0.1 if symbol == "XAUUSD" else (1 if symbol.endswith("JPY") else 10)
         lot_size = round(risk_amount / (pip_difference * pip_value), 2)
 
         return jsonify({
@@ -103,21 +97,5 @@ def calculate():
     except Exception as e:
         return jsonify({"success": False, "error": f"Erreur serveur : {str(e)}"}), 500
 
-# Lancer l'app uniquement si exécutée directement (pas en import)
-from flask import request, jsonify
-from services.metaapi_service import MetaAPIService
-
-@app.route("/price", methods=["POST"])
-def get_price():
-    data = request.json
-    symbol = data.get("symbol")
-    if not symbol:
-        return jsonify({"success": False, "error": "Symbole requis."}), 400
-
-    try:
-        price = get_price_from_metaapi(symbol)
-        return jsonify({"success": True, "price": price})
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
 if __name__ == "__main__":
     app.run(debug=False)
