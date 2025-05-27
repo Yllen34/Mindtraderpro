@@ -105,7 +105,7 @@ def calculate():
 
 # Lancer l'app uniquement si exécutée directement (pas en import)
 from flask import request, jsonify
-from services.metaapi_service import get_price_from_metaapi
+from services.metaapi_service import MetaAPIService
 
 @app.route("/price", methods=["POST"])
 def get_price():
