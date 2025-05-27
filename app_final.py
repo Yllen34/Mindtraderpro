@@ -98,4 +98,4 @@ def calculate():
         return jsonify({"success": False, "error": f"Erreur serveur : {str(e)}"}), 500
 
 if __name__ == "__main__":
-    app.run(debug=False)
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
