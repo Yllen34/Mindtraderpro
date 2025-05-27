@@ -2,6 +2,28 @@
  * Trading Calculator Pro - JS sécurisé & optimisé
  */
 
+async fetchLivePrice() {
+    const symbol = document.getElementById('symbol').value;
+    try {
+        const res = await fetch('/price', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ symbol })
+        });
+
+        const data = await res.json();
+        const display = document.getElementById('priceDisplay');
+
+        if (data.success) {
+            display.innerHTML = `<strong>Prix Actuel:</strong> ${data.price}`;
+        } else {
+            display.innerHTML = 'Erreur de prix';
+        }
+    } catch (err) {
+        document.getElementById('priceDisplay').innerHTML = 'Erreur API';
+    }
+}
+
 class TradingCalculator {
     constructor() {
         this.form = document.getElementById('calculatorForm');
