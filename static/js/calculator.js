@@ -2,28 +2,6 @@
  * Trading Calculator Pro - JS sécurisé & optimisé
  */
 
-async fetchLivePrice() {
-    const symbol = document.getElementById('symbol').value;
-    try {
-        const res = await fetch('/price', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ symbol })
-        });
-
-        const data = await res.json();
-        const display = document.getElementById('priceDisplay');
-
-        if (data.success) {
-            display.innerHTML = `<strong>Prix Actuel:</strong> ${data.price}`;
-        } else {
-            display.innerHTML = 'Erreur de prix';
-        }
-    } catch (err) {
-        document.getElementById('priceDisplay').innerHTML = 'Erreur API';
-    }
-}
-
 class TradingCalculator {
     constructor() {
         this.form = document.getElementById('calculatorForm');
@@ -34,6 +12,8 @@ class TradingCalculator {
         this.slInput = document.getElementById('stop_loss');
         this.entryInput = document.getElementById('entry_price');
         this.directionInput = document.getElementById('direction');
+        this.symbolInput = document.getElementById('symbol');
+        this.priceDisplay = document.getElementById('priceDisplay');
 
         this.init();
     }
@@ -47,13 +27,32 @@ class TradingCalculator {
         });
 
         this.directionInput.addEventListener('change', () => this.validateDirectionLogic());
+        this.symbolInput.addEventListener('change', () => this.fetchLivePrice());
 
         document.getElementById('clearHistory')?.addEventListener('click', () => this.clearHistory());
 
-this.fetchLivePrice();
-document.getElementById('symbol').addEventListener('change', () => this.fetchLivePrice());
-
+        this.fetchLivePrice();  // Affiche le prix dès le chargement
         this.loadHistory();
+    }
+
+    async fetchLivePrice() {
+        const symbol = this.symbolInput.value;
+        try {
+            const res = await fetch('/price', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ symbol })
+            });
+
+            const data = await res.json();
+            if (data.success) {
+                this.priceDisplay.innerHTML = `<strong>Prix Actuel:</strong> ${data.price}`;
+            } else {
+                this.priceDisplay.innerHTML = 'Erreur de prix';
+            }
+        } catch (err) {
+            this.priceDisplay.innerHTML = 'Erreur API';
+        }
     }
 
     debounceCalculate() {
@@ -162,7 +161,7 @@ document.getElementById('symbol').addEventListener('change', () => this.fetchLiv
 
     displayResults(result) {
         const direction = this.directionInput.value;
-        const symbol = document.getElementById('symbol').value;
+        const symbol = this.symbolInput.value;
         const capital = parseFloat(document.getElementById('capital').value);
         const riskPercent = parseFloat(document.getElementById('risk_percent').value);
         const entryPrice = parseFloat(this.entryInput.value);
