@@ -50,6 +50,9 @@ class TradingCalculator {
 
         document.getElementById('clearHistory')?.addEventListener('click', () => this.clearHistory());
 
+this.fetchLivePrice();
+document.getElementById('symbol').addEventListener('change', () => this.fetchLivePrice());
+
         this.loadHistory();
     }
 
