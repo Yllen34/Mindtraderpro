@@ -4,3 +4,5 @@ stripe
 requests
 python-dotenv
 sqlalchemy
+flask_sqlalchemy
+flask_login
